@@ -1,0 +1,68 @@
+name: CI and Build Docker Image
+
+on:
+  push:
+    branches:
+      - dev   # déclenchement uniquement sur la branche dev
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Récupérer le code
+      - name: Checkout code
+        uses: actions/checkout@v4   # mise à jour vers v4
+
+      # 2. Lancer les tests (à adapter selon ton stack Django)
+      - name: Run tests
+        run: |
+          echo "Exécute tes tests ici (pyt
+          est, manage.py test, etc.)"
+
+      # 3. Se connecter à Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3   # mise à jour vers v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 4. Construire et tagger l’image
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:${{ github.sha }} .
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:latest
+
+      # 5. Pousser l’image vers Docker Hub
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:latest
+
+  auto-merge:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Merge dev into main
+        uses: devops-infra/action-pull-request@v0.5.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          source_branch: dev
+          target_branch: main
+          title: "Auto merge from dev to main"
+          body: "CI passed, merging dev into main for deployment"
+
+  notify-infrastructure:
+    needs: auto-merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy workflow in infrastructure repo
+        uses: peter-evans/repository-dispatch@v3   # mise à jour vers v3
+        with:
+          token: ${{ secrets.GH_PAT }}   # ⚠️ PAT avec droits Contents + Metadata + Actions
+          repository: DREAMHOUSE-237/infrastructure   # ⚠️ remplace par ton organisation et repo exact
+          event-type: deploy-payment-service
+
