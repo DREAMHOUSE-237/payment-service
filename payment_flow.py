@@ -86,7 +86,6 @@ def process_payment(correlation_id, publication_id, user_id, email, amount, desc
             id=correlation_id,
             external_reference=correlation_id,
             publication_id=publication_id,
-            user_id=user_id,
             email=email,
             phone=phone,
             description=description,
