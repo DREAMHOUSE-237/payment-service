@@ -22,3 +22,4 @@ COPY . .
 EXPOSE 8086
 
 CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:8086", "--workers", "1", "--timeout", "120"]
+#
