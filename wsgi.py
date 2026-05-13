@@ -18,4 +18,4 @@ app = create_app()
 # 💠 Lancement du microservice
 # ===============================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8095)), debug=False)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8086)), debug=False)
