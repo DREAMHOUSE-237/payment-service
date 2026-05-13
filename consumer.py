@@ -65,6 +65,49 @@ def run_consumer(app):
 
                 logger.info("[consumer] received %s", data)
 
+                # ---- Guard : pas de numéro de téléphone → FAILED immédiat ----
+                if not phone:
+                    logger.warning(
+                        "[consumer] numeroPaiement absent pour %s — transaction FAILED sans appel Campay",
+                        correlation_id
+                    )
+                    with app.app_context():
+                        tx = Transaction.query.filter_by(external_reference=correlation_id).first()
+                        if not tx:
+                            tx = Transaction(
+                                id=correlation_id,
+                                external_reference=correlation_id,
+                                publication_id=publication_id,
+                                amount=getattr(Config, "FIXED_AMOUNT", amount),
+                                description=description,
+                                email=email,
+                                status="FAILED",
+                                phone=""
+                            )
+                            db.session.add(tx)
+                        else:
+                            tx.status = "FAILED"
+                        try:
+                            db.session.commit()
+                        except Exception:
+                            db.session.rollback()
+                            logger.exception("[consumer] Failed to save FAILED transaction")
+
+                        try:
+                            publish_payment_status({
+                                "correlation_id": correlation_id,
+                                "status": "FAILED",
+                                "amount": getattr(Config, "FIXED_AMOUNT", amount),
+                                "email": email,
+                                "publication_id": publication_id,
+                            })
+                            logger.info("[consumer] Published FAILED status (no phone) for %s", correlation_id)
+                        except Exception:
+                            logger.exception("[consumer] Failed to publish FAILED status")
+
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    return
+
                 with app.app_context():
                     # process payment (this will create tx if missing)
                     result = process_payment(
@@ -79,7 +122,6 @@ def run_consumer(app):
 
                     # ---- SAVE or UPDATE transaction in DB using fields the model expects ----
                     try:
-                        # Use id and external_reference (fields expected by the model)
                         tx = Transaction.query.filter_by(external_reference=correlation_id).first()
                         if not tx:
                             tx = Transaction(
