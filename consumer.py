@@ -109,11 +109,10 @@ def run_consumer(app):
                     return
 
                 with app.app_context():
-                    # process payment (this will create tx if missing)
+                    # ✅ FIX : suppression de user_id=None qui n'existe pas dans process_payment()
                     result = process_payment(
                         correlation_id=correlation_id,
                         publication_id=publication_id,
-                        user_id=None,
                         email=email,
                         amount=amount,
                         description=description,
