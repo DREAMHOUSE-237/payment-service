@@ -61,4 +61,4 @@ class Config:
     WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 
     # DEMO: force 5 XAF
-    FIXED_AMOUNT = 5
+    FIXED_AMOUNT = 10
