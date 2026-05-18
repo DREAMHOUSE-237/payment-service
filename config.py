@@ -8,7 +8,7 @@ INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 os.makedirs(INSTANCE_DIR, exist_ok=True)
 
 # ----------------------------
-# 🔥 NEW: MySQL Configuration
+# 🔥 MySQL Configuration
 # ----------------------------
 MYSQL_USER = os.environ.get("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "password")
@@ -40,14 +40,16 @@ class Config:
     RABBITMQ_USER = os.environ.get("RABBITMQ_USER", "guest")
     RABBITMQ_PASSWORD = os.environ.get("RABBITMQ_PASSWORD", "guest")
     RABBITMQ_VHOST = os.environ.get("RABBITMQ_VHOST", "/")
-    PAYMENT_INIT_QUEUE = os.environ.get("PAYMENT_INIT_QUEUE", "payments")
+
+    # ✅ FIX : aligné avec le nom déclaré dans RabbitMQConfig.java du publication-service
+    PAYMENT_INIT_QUEUE = os.environ.get("PAYMENT_INIT_QUEUE", "payment-queue")  # était "payments"
     PAYMENT_STATUS_QUEUE = os.environ.get("PAYMENT_STATUS_QUEUE", "payment-status")
 
     # Campay
     CAMPAY_BASE_URL = os.environ.get("CAMPAY_BASE_URL", "https://demo.campay.net/api")
-    CAMPAY_TOKEN = os.environ.get("CAMPAY_TOKEN", "")       # permanent token optional
-    CAMPAY_USERNAME = os.environ.get("CAMPAY_USERNAME", "") # optional
-    CAMPAY_PASSWORD = os.environ.get("CAMPAY_PASSWORD", "") # optional
+    CAMPAY_TOKEN = os.environ.get("CAMPAY_TOKEN", "")
+    CAMPAY_USERNAME = os.environ.get("CAMPAY_USERNAME", "")
+    CAMPAY_PASSWORD = os.environ.get("CAMPAY_PASSWORD", "")
 
     # Mail
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
