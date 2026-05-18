@@ -56,12 +56,12 @@ def run_consumer(app):
                     ch.basic_ack(delivery_tag=method.delivery_tag)
                     return
 
-                amount = data.get("prix") or data.get("amount")
-                email = data.get("proprietaireEmail") or data.get("email")
-                description = data.get("description")
+                amount         = data.get("prix") or data.get("amount")
+                email          = data.get("proprietaireEmail") or data.get("email")
+                description    = data.get("description")
                 publication_id = data.get("idPublication") or data.get("publicationId")
-                correlation_id = data.get("correlation_id") or str(uuid.uuid4())
-                phone = data.get("numeroPaiement") or data.get("phone") or ""
+                correlation_id = data.get("correlation_id") or data.get("correlationId") or str(uuid.uuid4())
+                phone          = data.get("numeroPaiement") or data.get("phone") or ""
 
                 logger.info("[consumer] received %s", data)
 
@@ -94,12 +94,13 @@ def run_consumer(app):
                             logger.exception("[consumer] Failed to save FAILED transaction")
 
                         try:
+                            # ✅ FIX : clés camelCase alignées avec PaymentStatusMessage.java
                             publish_payment_status({
-                                "correlation_id": correlation_id,
-                                "status": "FAILED",
-                                "amount": getattr(Config, "FIXED_AMOUNT", amount),
-                                "email": email,
-                                "publication_id": publication_id,
+                                "correlationId": correlation_id,
+                                "status":        "FAILED",
+                                "amount":        getattr(Config, "FIXED_AMOUNT", amount),
+                                "email":         email,
+                                "publicationId": publication_id,  # ✅ était publication_id (snake_case) → ignoré par Jackson
                             })
                             logger.info("[consumer] Published FAILED status (no phone) for %s", correlation_id)
                         except Exception:
@@ -109,7 +110,7 @@ def run_consumer(app):
                     return
 
                 with app.app_context():
-                    # ✅ FIX : suppression de user_id=None qui n'existe pas dans process_payment()
+                    # ✅ FIX : suppression de user_id=None inexistant dans process_payment()
                     result = process_payment(
                         correlation_id=correlation_id,
                         publication_id=publication_id,
@@ -119,7 +120,7 @@ def run_consumer(app):
                         phone=phone
                     )
 
-                    # ---- SAVE or UPDATE transaction in DB using fields the model expects ----
+                    # ---- SAVE or UPDATE transaction in DB ----
                     try:
                         tx = Transaction.query.filter_by(external_reference=correlation_id).first()
                         if not tx:
@@ -143,18 +144,21 @@ def run_consumer(app):
                         db.session.rollback()
                         logger.exception("[consumer] Failed to save transaction in DB")
 
-                    # ---- publish payment status to queue ----
-                    try:
-                        publish_payment_status({
-                            "correlation_id": correlation_id,
-                            "status": result.get("status"),
-                            "amount": getattr(Config, "FIXED_AMOUNT", amount),
-                            "email": email,
-                            "publication_id": publication_id,
-                        })
-                        logger.info("[consumer] Published payment status for %s", correlation_id)
-                    except Exception:
-                        logger.exception("[consumer] Failed to publish payment status")
+                    # ---- publish payment status uniquement si statut final ----
+                    # PENDING n'est pas publié ici : le statut final viendra du webhook Campay
+                    if result.get("status") in ["SUCCESS", "FAILED"]:
+                        try:
+                            # ✅ FIX : clés camelCase alignées avec PaymentStatusMessage.java
+                            publish_payment_status({
+                                "correlationId": correlation_id,
+                                "status":        result.get("status"),
+                                "amount":        getattr(Config, "FIXED_AMOUNT", amount),
+                                "email":         email,
+                                "publicationId": publication_id,  # ✅ était publication_id (snake_case) → ignoré par Jackson
+                            })
+                            logger.info("[consumer] Published payment status for %s", correlation_id)
+                        except Exception:
+                            logger.exception("[consumer] Failed to publish payment status")
 
                     # ---- send email with retry ----
                     if result.get("status") == "PENDING" and email:
