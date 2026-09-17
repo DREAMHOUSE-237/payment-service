@@ -33,6 +33,12 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = DB_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # RDS requires TLS; skip for the local SQLite fallback which doesn't support it.
+    SQLALCHEMY_ENGINE_OPTIONS = (
+        {"connect_args": {"ssl": {"ca": os.environ.get("DB_SSL_CA", "/certs/global-bundle.pem")}}}
+        if DB_URI.startswith("mysql")
+        else {}
+    )
 
     # RabbitMQ
     RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
