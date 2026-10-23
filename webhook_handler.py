@@ -3,6 +3,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from models import db, Transaction
 from payment_publisher import publish_payment_status
+from campay_client import get_transaction_status
 import hmac
 import hashlib
 import os
@@ -43,12 +44,6 @@ def campay_webhook():
 
     reference = data.get("reference")
 
-    raw_status = (
-        data.get("status")
-        or data.get("transaction_status")
-        or ""
-    ).upper()
-
     external_reference = (
         data.get("external_reference")
         or data.get("externalReference")
@@ -71,6 +66,31 @@ def campay_webhook():
         return jsonify({"error": "transaction not found"}), 404
 
     # ----------------------------
+    # Ce endpoint est public : on ne fait pas confiance au statut du
+    # payload, on redemande le vrai statut à Campay avec notre token,
+    # pour la référence enregistrée à l'initiation du paiement.
+    # ----------------------------
+
+    if not tx.provider_reference:
+        return jsonify({"error": "transaction has no provider reference"}), 409
+
+    try:
+        campay_tx = get_transaction_status(tx.provider_reference)
+    except Exception:
+        current_app.logger.exception("Campay status check failed")
+        return jsonify({"error": "status check failed"}), 502
+
+    campay_external_reference = campay_tx.get("external_reference")
+    if campay_external_reference and campay_external_reference != tx.external_reference:
+        current_app.logger.warning(
+            "[WEBHOOK] external_reference mismatch for tx %s: %s != %s",
+            tx.id, campay_external_reference, tx.external_reference
+        )
+        return jsonify({"error": "reference mismatch"}), 409
+
+    raw_status = (campay_tx.get("status") or "").upper()
+
+    # ----------------------------
     # Mapping propre des statuts
     # ----------------------------
 
@@ -91,10 +111,6 @@ def campay_webhook():
         return jsonify({"message": "already processed"}), 200
 
     try:
-
-        tx.provider_reference = (
-            reference or tx.provider_reference
-        )
 
         tx.status = final_status
 
