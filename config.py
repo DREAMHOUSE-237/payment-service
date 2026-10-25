@@ -11,7 +11,7 @@ os.makedirs(INSTANCE_DIR, exist_ok=True)
 # 🔥 MySQL Configuration
 # ----------------------------
 MYSQL_USER = os.environ.get("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "password")
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
 MYSQL_HOST = os.environ.get("MYSQL_HOST", "localhost")
 MYSQL_PORT = os.environ.get("MYSQL_PORT", "3306")
 MYSQL_DB = os.environ.get("MYSQL_DB", "paymentdb")
@@ -29,7 +29,7 @@ DB_URI = os.environ.get("DATABASE_URL", MYSQL_URI or SQLITE_URI)
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev_key")
+    SECRET_KEY = os.environ.get("SECRET_KEY")
 
     SQLALCHEMY_DATABASE_URI = DB_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
